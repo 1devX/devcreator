@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Speech Translator (No API Key)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            margin-bottom: 10px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            resize: none;
+            font-size: 16px;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        .btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #45a049;
+        }
+        .language-select {
+            font-size: 16px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interactive Speech Translator</h1>
+        <p>Speak in English, and I'll reply in text and voice.</p>
+        
+        <textarea id="user-input" placeholder="Your speech will appear here..." readonly></textarea>
+        <textarea id="response" placeholder="Translation will appear here..." readonly></textarea>
+        
+        <div class="controls">
+            <select id="language-select" class="language-select">
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+            </select>
+            <br>
+            <button class="btn" onclick="startListening()">🎤 Speak</button>
+        </div>
+    </div>
+
+    <script>
+        let recognition;
+
+        // Check for browser compatibility with Web Speech API
+        if (!('webkitSpeechRecognition' in window)) {
+            alert('Speech Recognition is not supported in this browser. Try Google Chrome.');
+        } else {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = "en-US";
+
+            recognition.onresult = async function(event) {
+                const userInput = event.results[0][0].transcript;
+                document.getElementById('user-input').value = userInput;
+                await handleTranslation(userInput);
+            };
+
+            recognition.onerror = function(event) {
+                console.error("Speech recognition error: ", event.error);
+            };
+
+            recognition.onend = function() {
+                console.log("Speech recognition ended.");
+            };
+        }
+
+        // Start speech recognition
+        function startListening() {
+            if (recognition) {
+                document.getElementById('user-input').value = "";
+                recognition.start();
+            }
+        }
+
+        // Handle translation and reply
+        async function handleTranslation(userInput) {
+            const targetLang = document.getElementById('language-select').value;
+            const responseField = document.getElementById('response');
+
+            // Use MyMemory API for free translation
+            const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(userInput)}&langpair=en|${targetLang}`);
+            const data = await response.json();
+            const translatedText = data.responseData.translatedText;
+
+            // Display the translation
+            responseField.value = translatedText;
+
+            // Speak the translation
+            const speech = new SpeechSynthesisUtterance();
+            speech.text = translatedText;
+
+            // Set voice based on language
+            const voices = window.speechSynthesis.getVoices();
+            const selectedVoice = voices.find(voice => {
+                return (
+                    (targetLang === 'es' && voice.lang.startsWith('es')) ||
+                    (targetLang === 'fr' && voice.lang.startsWith('fr')) ||
+                    (targetLang === 'de' && voice.lang.startsWith('de')) ||
+                    (targetLang === 'it' && voice.lang.startsWith('it'))
+                );
+            });
+
+            if (selectedVoice) {
+                speech.voice = selectedVoice;
+            } else {
+                console.warn("No matching voice found. Using default.");
+            }
+
+            speech.lang = targetLang;
+            window.speechSynthesis.speak(speech);
+        }
+    </script>
+</body>
+</html>
